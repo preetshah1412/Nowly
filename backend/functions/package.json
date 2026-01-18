@@ -1,0 +1,14 @@
+{
+  "name": "elsf-functions",
+  "version": "0.1.0",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^4.4.0",
+    "geofire-common": "^5.2.0"
+  }
+}

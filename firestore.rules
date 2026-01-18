@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /providers/{providerId} {
+      // Public read needed for matching logic (or authenticated users finding them)
+      allow read: if isAuthenticated();
+      allow write: if isOwner(providerId); 
+    }
+
+    match /service_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        resource.data.user_uid == request.auth.uid || 
+        // Ideally, only providers who received the job should read, 
+        // but for MVP, authenticated providers can read pending jobs
+        resource.data.accepted_by == request.auth.uid ||
+        resource.data.status == 'pending'
+      );
+      
+      allow update: if isAuthenticated() && (
+        // User cancelling
+        (resource.data.user_uid == request.auth.uid && request.resource.data.status == 'cancelled') ||
+        
+        // Provider accepting
+        (resource.data.status == 'pending' && 
+         request.resource.data.status == 'accepted' &&
+         request.resource.data.accepted_by == request.auth.uid)
+      );
+    }
+  }
+}

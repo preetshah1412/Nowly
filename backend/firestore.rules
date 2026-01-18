@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function isUser(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isProvider(uid) { return isSignedIn() && request.auth.token.role == 'provider' && request.auth.uid == uid; }
+    function isUserRole() { return isSignedIn() && request.auth.token.role == 'user'; }
+    match /users/{uid} {
+      allow read: if isSignedIn() && (isUser(uid) || isUserRole());
+      allow write: if isUser(uid);
+      match /tokens/{tokenId} {
+        allow read, write: if isUser(uid);
+      }
+    }
+    match /providers/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isProvider(uid);
+      match /tokens/{tokenId} {
+        allow read, write: if isProvider(uid);
+      }
+    }
+    match /service_requests/{id} {
+      allow create: if isUserRole();
+      allow read: if isSignedIn();
+      allow update: if isUserRole() && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth.token.role == 'provider' && request.resource.data.acceptedBy == request.auth.uid;
+      allow delete: if isUserRole() && resource.data.userId == request.auth.uid && resource.data.status in ['pending','accepted'];
+    }
+    match /job_history/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+    match /fraud_reports/{id} {
+      allow create: if isUserRole();
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
+  }
+}
